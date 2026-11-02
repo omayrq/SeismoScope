@@ -191,9 +191,9 @@
   <div>
     <div class="ctrl-title">Base Map Style</div>
     <div class="btn-group">
-      <button class="btn-opt active" data-style="dark">Dark Matter</button>
+      <button class="btn-opt active" data-style="dark">Dark</button>
       <button class="btn-opt" data-style="satellite">Satellite</button>
-      <button class="btn-opt" data-style="voyager">Streets</button>
+      <button class="btn-opt" data-style="streets">Streets</button>
     </div>
   </div>
 
@@ -227,22 +227,10 @@
 const S3_GEOJSON_URL = "http://seismoscope-app-528582359305.s3-website-us-east-1.amazonaws.com/data/quakes_30d.geojson";
 const API_GATEWAY_URL = "https://ffz5g978r3.execute-api.us-east-1.amazonaws.com/prod/earthquakes";
 
+// Clean, high-performance, 100% watermark-free vector & raster styles
 const MAP_STYLES = {
-  dark: {
-    version: 8,
-    sources: {
-      "carto-dark": {
-        type: "raster",
-        tiles: [
-          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
-        ],
-        tileSize: 256,
-        attribution: "&copy; OpenStreetMap, &copy; CARTO"
-      }
-    },
-    layers: [{ id: "carto-dark-layer", type: "raster", source: "carto-dark", minzoom: 0, maxzoom: 20 }]
-  },
+  dark: "https://tiles.openfreemap.org/styles/dark",
+  streets: "https://tiles.openfreemap.org/styles/liberty",
   satellite: {
     version: 8,
     sources: {
@@ -254,21 +242,6 @@ const MAP_STYLES = {
       }
     },
     layers: [{ id: "esri-sat-layer", type: "raster", source: "esri-sat", minzoom: 0, maxzoom: 19 }]
-  },
-  voyager: {
-    version: 8,
-    sources: {
-      "carto-voyager": {
-        type: "raster",
-        tiles: [
-          "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-          "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
-        ],
-        tileSize: 256,
-        attribution: "&copy; OpenStreetMap, &copy; CARTO"
-      }
-    },
-    layers: [{ id: "carto-voyager-layer", type: "raster", source: "carto-voyager", minzoom: 0, maxzoom: 20 }]
   }
 };
 
