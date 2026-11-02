@@ -1,0 +1,11 @@
+{
+  "AllowActions": [
+    "geo:GetMap*",
+    "geo:SearchPlaceIndex*",
+    "geo:GetPlace"
+  ],
+  "AllowResources": [
+    "arn:aws:geo:us-east-1:528582359305:map/seismoscope-map",
+    "arn:aws:geo:us-east-1:528582359305:place-index/seismoscope-places"
+  ]
+}

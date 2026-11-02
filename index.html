@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SeismoScope — Global Earthquake Explorer | AWS Map It</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0b0f19; color: #f1f5f9; height: 100vh; overflow: hidden; }
+
+  #map { position: absolute; inset: 0; }
+
+  /* ── HEADER ── */
+  #header {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+    background: linear-gradient(180deg, rgba(11, 15, 25, 0.95) 0%, rgba(11, 15, 25, 0.85) 100%);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, #f97316, #ef4444); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 0 16px rgba(249,115,22,0.4); }
+  .logo-title { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+  .logo-badge { font-size: 10px; font-weight: 700; background: rgba(249,115,22,0.15); color: #f97316; border: 1px solid rgba(249,115,22,0.3); border-radius: 4px; padding: 2px 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── SEARCH ── */
+  #search-wrap { position: relative; width: 320px; }
+  #search-input {
+    width: 100%; padding: 8px 38px 8px 14px;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px; color: #fff; font-size: 13px; outline: none;
+    transition: all .2s ease;
+  }
+  #search-input:focus { border-color: #f97316; background: rgba(255, 255, 255, 0.08); box-shadow: 0 0 12px rgba(249,115,22,0.2); }
+  #search-input::placeholder { color: #64748b; }
+  #search-btn {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 14px;
+  }
+  #search-btn:hover { color: #f97316; }
+  #suggestions {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: #111827; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+    max-height: 200px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+  }
+  .suggestion-item { padding: 9px 12px; cursor: pointer; font-size: 12px; color: #cbd5e1; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .suggestion-item:hover { background: rgba(249,115,22,0.15); color: #f97316; }
+
+  /* ── METRICS ── */
+  .metrics { display: flex; gap: 20px; align-items: center; }
+  .metric-card { text-align: right; }
+  .metric-val { font-size: 18px; font-weight: 800; color: #f97316; font-variant-numeric: tabular-nums; }
+  .metric-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── SIDE FLOATING CONTROLS ── */
+  #controls {
+    position: absolute; top: 76px; left: 16px; width: 280px; z-index: 10;
+    background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+    padding: 16px; display: flex; flex-direction: column; gap: 16px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  }
+  .ctrl-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .ctrl-val { color: #f97316; font-weight: 800; font-size: 12px; }
+  input[type=range] { width: 100%; accent-color: #f97316; cursor: pointer; }
+
+  .btn-group { display: flex; gap: 6px; }
+  .btn-opt {
+    flex: 1; padding: 7px 4px; font-size: 11px; font-weight: 600; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+    color: #94a3b8; cursor: pointer; text-align: center; transition: all .15s;
+  }
+  .btn-opt.active, .btn-opt:hover { background: #f97316; border-color: #f97316; color: #fff; box-shadow: 0 0 12px rgba(249,115,22,0.3); }
+
+  .arch-badge {
+    background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3);
+    border-radius: 8px; padding: 10px; font-size: 11px; color: #38bdf8; line-height: 1.4;
+  }
+  .arch-badge strong { color: #e0f2fe; }
+
+  /* ── RISK BANNER ── */
+  #risk-box {
+    position: absolute; bottom: 24px; left: 16px; z-index: 10; width: 280px;
+    background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+    padding: 14px 16px; box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+  }
+  .risk-hdr { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; }
+  .risk-status { font-size: 16px; font-weight: 800; margin: 4px 0; }
+  .risk-desc { font-size: 11px; color: #94a3b8; line-height: 1.4; }
+
+  /* ── LEGEND ── */
+  #legend {
+    position: absolute; bottom: 24px; right: 16px; z-index: 10;
+    background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+    padding: 12px 16px; min-width: 150px; font-size: 11px;
+  }
+  .leg-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 8px; }
+  .leg-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; color: #cbd5e1; }
+  .leg-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── POPUP ── */
+  .maplibregl-popup-content {
+    background: #0f172a !important; border: 1px solid rgba(255,255,255,0.15) !important;
+    border-radius: 12px !important; padding: 14px 16px !important; color: #f1f5f9 !important;
+    font-family: inherit !important; box-shadow: 0 16px 36px rgba(0,0,0,0.6) !important;
+    max-width: 260px !important;
+  }
+  .maplibregl-popup-tip { border-top-color: #0f172a !important; }
+  .pop-mag { font-size: 26px; font-weight: 900; line-height: 1; }
+  .pop-place { font-size: 12px; color: #cbd5e1; margin: 6px 0 10px; line-height: 1.3; }
+  .pop-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,0.06); }
+  .pop-lbl { color: #64748b; }
+  .pop-val { color: #f97316; font-weight: 600; }
+  .pop-btn { display: block; margin-top: 10px; text-align: center; padding: 6px; background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.3); border-radius: 6px; color: #f97316; text-decoration: none; font-size: 11px; font-weight: 600; }
+  .pop-btn:hover { background: #f97316; color: #fff; }
+
+  #loader {
+    position: absolute; inset: 0; z-index: 100; background: #0b0f19;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  }
+  .spinner { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #f97316; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="logo-icon" style="width:48px;height:48px;font-size:24px">🌋</div>
+  <div style="font-size:18px;font-weight:700">SeismoScope</div>
+  <div class="spinner"></div>
+  <div style="font-size:12px;color:#64748b">Loading geospatial earthquake records from AWS pipeline...</div>
+</div>
+
+<div id="map"></div>
+
+<!-- Top Header -->
+<div id="header">
+  <div class="brand">
+    <div class="logo-icon">🌋</div>
+    <div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="logo-title">SeismoScope</span>
+        <span class="logo-badge">AWS Map It Hackathon</span>
+      </div>
+      <div style="font-size:11px;color:#64748b">Global Seismic Hazards &amp; Spatial Risk Intelligence</div>
+    </div>
+  </div>
+
+  <div id="search-wrap">
+    <input type="text" id="search-input" placeholder="Search any city or region..." />
+    <button id="search-btn">🔍</button>
+    <div id="suggestions"></div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-val" id="m-count">—</div>
+      <div class="metric-lbl">Total Events</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val" id="m-max">—</div>
+      <div class="metric-lbl">Peak Mag</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val" id="m-deep">—</div>
+      <div class="metric-lbl">Max Depth</div>
+    </div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div id="controls">
+  <div>
+    <div class="ctrl-title">Min Magnitude <span class="ctrl-val" id="v-mag">M 2.5+</span></div>
+    <input type="range" id="sl-mag" min="2.5" max="7.0" step="0.5" value="2.5" />
+  </div>
+
+  <div>
+    <div class="ctrl-title">Visualization Layer</div>
+    <div class="btn-group">
+      <button class="btn-opt active" data-viz="heatmap">Heatmap</button>
+      <button class="btn-opt" data-viz="clusters">Clusters</button>
+      <button class="btn-opt" data-viz="points">Points</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="ctrl-title">Base Map Style</div>
+    <div class="btn-group">
+      <button class="btn-opt active" data-style="dark">Dark Matter</button>
+      <button class="btn-opt" data-style="satellite">Satellite</button>
+      <button class="btn-opt" data-style="voyager">Streets</button>
+    </div>
+  </div>
+
+  <div class="arch-badge">
+    <strong>AWS Pipeline Architecture</strong><br />
+    • Storage: Amazon S3 GeoJSON Data Lake<br />
+    • Compute: AWS Lambda (Python 3.11)<br />
+    • Gateway: Amazon API Gateway REST API<br />
+    • Frontend: MapLibre GL JS + S3 Hosting
+  </div>
+</div>
+
+<!-- Regional Risk Box -->
+<div id="risk-box">
+  <div class="risk-hdr">Seismic Risk Assessment in Current View</div>
+  <div class="risk-status" id="risk-stat">—</div>
+  <div class="risk-desc" id="risk-desc">Calculating visible geospatial events...</div>
+</div>
+
+<!-- Legend -->
+<div id="legend">
+  <div class="leg-title">Magnitude Scale</div>
+  <div class="leg-item"><div class="leg-color" style="background:#fde047"></div> M 2.5 - 3.9 (Minor)</div>
+  <div class="leg-item"><div class="leg-color" style="background:#fb923c"></div> M 4.0 - 5.4 (Moderate)</div>
+  <div class="leg-item"><div class="leg-color" style="background:#f97316"></div> M 5.5 - 6.4 (Strong)</div>
+  <div class="leg-item"><div class="leg-color" style="background:#ef4444"></div> M 6.5+ (Major / Great)</div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+const S3_GEOJSON_URL = "http://seismoscope-app-528582359305.s3-website-us-east-1.amazonaws.com/data/quakes_30d.geojson";
+const API_GATEWAY_URL = "https://ffz5g978r3.execute-api.us-east-1.amazonaws.com/prod/earthquakes";
+
+const MAP_STYLES = {
+  dark: {
+    version: 8,
+    sources: {
+      "carto-dark": {
+        type: "raster",
+        tiles: [
+          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
+        ],
+        tileSize: 256,
+        attribution: "&copy; OpenStreetMap, &copy; CARTO"
+      }
+    },
+    layers: [{ id: "carto-dark-layer", type: "raster", source: "carto-dark", minzoom: 0, maxzoom: 20 }]
+  },
+  satellite: {
+    version: 8,
+    sources: {
+      "esri-sat": {
+        type: "raster",
+        tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+        tileSize: 256,
+        attribution: "&copy; Esri World Imagery"
+      }
+    },
+    layers: [{ id: "esri-sat-layer", type: "raster", source: "esri-sat", minzoom: 0, maxzoom: 19 }]
+  },
+  voyager: {
+    version: 8,
+    sources: {
+      "carto-voyager": {
+        type: "raster",
+        tiles: [
+          "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+          "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
+        ],
+        tileSize: 256,
+        attribution: "&copy; OpenStreetMap, &copy; CARTO"
+      }
+    },
+    layers: [{ id: "carto-voyager-layer", type: "raster", source: "carto-voyager", minzoom: 0, maxzoom: 20 }]
+  }
+};
+
+let map, rawGeoData = null, filteredGeoData = null;
+let currentViz = "heatmap";
+let currentStyle = "dark";
+let popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: "280px" });
+
+function init() {
+  map = new maplibregl.Map({
+    container: "map",
+    style: MAP_STYLES[currentStyle],
+    center: [0, 20],
+    zoom: 2.2,
+    minZoom: 1.5,
+    maxZoom: 16
+  });
+
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  map.addControl(new maplibregl.ScaleControl(), "bottom-left");
+
+  map.on("load", async () => {
+    await loadData();
+    document.getElementById("loader").style.display = "none";
+  });
+
+  map.on("moveend", updateRiskAssessment);
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(S3_GEOJSON_URL);
+    rawGeoData = await res.json();
+  } catch (e) {
+    console.warn("Falling back to API Gateway:", e);
+    const res = await fetch(API_GATEWAY_URL);
+    rawGeoData = await res.json();
+  }
+  applyFilters();
+}
+
+function applyFilters() {
+  if (!rawGeoData) return;
+  const minM = parseFloat(document.getElementById("sl-mag").value);
+
+  filteredGeoData = {
+    type: "FeatureCollection",
+    features: rawGeoData.features.filter(f => (f.properties.mag || 0) >= minM)
+  };
+
+  updateMetrics(filteredGeoData);
+  renderVisualLayers(filteredGeoData);
+  updateRiskAssessment();
+}
+
+function updateMetrics(data) {
+  const feats = data.features || [];
+  document.getElementById("m-count").textContent = feats.length.toLocaleString();
+
+  const mags = feats.map(f => f.properties.mag || 0);
+  const depths = feats.map(f => (f.geometry.coordinates[2] || 0));
+
+  document.getElementById("m-max").textContent = mags.length ? "M " + Math.max(...mags).toFixed(1) : "—";
+  document.getElementById("m-deep").textContent = depths.length ? Math.max(...depths).toFixed(0) + " km" : "—";
+}
+
+function clearLayers() {
+  ["quake-heat", "quake-clusters", "quake-cluster-count", "quake-points", "quake-point-halo"].forEach(id => {
+    if (map.getLayer(id)) map.removeLayer(id);
+  });
+  if (map.getSource("quakes-src")) map.removeSource("quakes-src");
+}
+
+function renderVisualLayers(data) {
+  clearLayers();
+
+  map.addSource("quakes-src", {
+    type: "geojson",
+    data: data,
+    cluster: (currentViz === "clusters"),
+    clusterMaxZoom: 9,
+    clusterRadius: 45
+  });
+
+  if (currentViz === "heatmap") {
+    map.addLayer({
+      id: "quake-heat",
+      type: "heatmap",
+      source: "quakes-src",
+      paint: {
+        "heatmap-weight": ["interpolate", ["linear"], ["get", "mag"], 2.5, 0.2, 5, 0.6, 7, 1.0],
+        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 2, 1, 9, 3],
+        "heatmap-color": [
+          "interpolate", ["linear"], ["heatmap-density"],
+          0, "rgba(11,15,25,0)",
+          0.15, "rgba(253,224,71,0.5)",
+          0.35, "rgba(251,146,60,0.75)",
+          0.6, "rgba(249,115,22,0.9)",
+          0.85, "rgba(239,68,68,0.95)",
+          1.0, "rgba(255,255,255,1)"
+        ],
+        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 2, 10, 8, 30],
+        "heatmap-opacity": 0.88
+      }
+    });
+
+    map.addLayer({
+      id: "quake-points",
+      type: "circle",
+      source: "quakes-src",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["get", "mag"], 2.5, 4, 6, 9, 8, 16],
+        "circle-color": "transparent",
+        "circle-stroke-width": 0
+      }
+    });
+  } else if (currentViz === "clusters") {
+    map.addLayer({
+      id: "quake-clusters",
+      type: "circle",
+      source: "quakes-src",
+      filter: ["has", "point_count"],
+      paint: {
+        "circle-color": ["step", ["get", "point_count"], "#fde047", 15, "#fb923c", 50, "#f97316", 150, "#ef4444"],
+        "circle-radius": ["step", ["get", "point_count"], 18, 15, 24, 50, 32, 150, 40],
+        "circle-opacity": 0.9,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#ffffff"
+      }
+    });
+
+    map.addLayer({
+      id: "quake-cluster-count",
+      type: "symbol",
+      source: "quakes-src",
+      filter: ["has", "point_count"],
+      layout: { "text-field": "{point_count_abbreviated}", "text-size": 12, "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"] },
+      paint: { "text-color": "#0f172a" }
+    });
+
+    map.addLayer({
+      id: "quake-points",
+      type: "circle",
+      source: "quakes-src",
+      filter: ["!", ["has", "point_count"]],
+      paint: {
+        "circle-color": [
+          "interpolate", ["linear"], ["get", "mag"],
+          2.5, "#fde047", 4.5, "#fb923c", 6.0, "#f97316", 7.0, "#ef4444"
+        ],
+        "circle-radius": ["interpolate", ["linear"], ["get", "mag"], 2.5, 4, 5.5, 8, 7.5, 14],
+        "circle-opacity": 0.9,
+        "circle-stroke-width": 1.5,
+        "circle-stroke-color": "#ffffff"
+      }
+    });
+
+    map.on("click", "quake-clusters", e => {
+      const f = e.features[0];
+      map.easeTo({ center: f.geometry.coordinates, zoom: map.getZoom() + 2 });
+    });
+  } else {
+    map.addLayer({
+      id: "quake-points",
+      type: "circle",
+      source: "quakes-src",
+      paint: {
+        "circle-color": [
+          "interpolate", ["linear"], ["get", "mag"],
+          2.5, "#fde047", 4.5, "#fb923c", 6.0, "#f97316", 7.0, "#ef4444"
+        ],
+        "circle-radius": ["interpolate", ["linear"], ["get", "mag"], 2.5, 4, 5.5, 8, 7.5, 15],
+        "circle-opacity": 0.85,
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "rgba(255,255,255,0.4)"
+      }
+    });
+  }
+
+  setupPopupListener("quake-points");
+}
+
+function setupPopupListener(layerId) {
+  map.on("click", layerId, e => {
+    if (!e.features || !e.features.length) return;
+    const f = e.features[0];
+    const p = f.properties;
+    const [lng, lat, depth] = f.geometry.coordinates;
+
+    const mag = parseFloat(p.mag || 0).toFixed(1);
+    const magColor = mag >= 6.5 ? "#ef4444" : mag >= 5.5 ? "#f97316" : mag >= 4.0 ? "#fb923c" : "#fde047";
+    const eventTime = new Date(p.time).toUTCString();
+    const usgsLink = p.url || `https://earthquake.usgs.gov/earthquakes/eventpage/${p.id || ""}`;
+
+    popup.setLngLat([lng, lat])
+      .setHTML(`
+        <div class="pop-mag" style="color:${magColor}">M ${mag}</div>
+        <div class="pop-place">${p.place || "Unknown Seismic Source"}</div>
+        <div class="pop-row"><span class="pop-lbl">Focal Depth</span><span class="pop-val">${depth ? depth.toFixed(1) + " km" : "N/A"}</span></div>
+        <div class="pop-row"><span class="pop-lbl">Coordinates</span><span class="pop-val">${lat.toFixed(2)}°, ${lng.toFixed(2)}°</span></div>
+        <div class="pop-row"><span class="pop-lbl">Recorded UTC</span><span class="pop-val" style="font-size:10px">${eventTime}</span></div>
+        <a class="pop-btn" href="${usgsLink}" target="_blank" rel="noopener">USGS Technical Sheet ↗</a>
+      `)
+      .addTo(map);
+  });
+
+  map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
+  map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = ""; });
+}
+
+function updateRiskAssessment() {
+  if (!filteredGeoData) return;
+  const bounds = map.getBounds();
+  const visible = filteredGeoData.features.filter(f => {
+    const [lng, lat] = f.geometry.coordinates;
+    return bounds.contains([lng, lat]);
+  });
+
+  const statEl = document.getElementById("risk-stat");
+  const descEl = document.getElementById("risk-desc");
+
+  const count = visible.length;
+  const mags = visible.map(f => f.properties.mag || 0);
+  const maxM = mags.length ? Math.max(...mags) : 0;
+  const severe = mags.filter(m => m >= 6.0).length;
+
+  if (maxM >= 6.8 || severe >= 3) {
+    statEl.innerHTML = "<span style='color:#ef4444'>CRITICAL SEISMIC RISK</span>";
+    descEl.textContent = `${count} events visible, including ${severe} major shocks (M6.0+). Highly active tectonic boundary.`;
+  } else if (maxM >= 5.5 || count >= 80) {
+    statEl.innerHTML = "<span style='color:#f97316'>ELEVATED RISK</span>";
+    descEl.textContent = `${count} visible quakes with peak magnitude M${maxM.toFixed(1)}. Subduction or transform fault movement.`;
+  } else if (count >= 15 || maxM >= 4.5) {
+    statEl.innerHTML = "<span style='color:#fb923c'>MODERATE ACTIVITY</span>";
+    descEl.textContent = `${count} events recorded in this quadrant. Typical interplate background stress.`;
+  } else {
+    statEl.innerHTML = "<span style='color:#22c55e'>LOW SEISMIC ACTIVITY</span>";
+    descEl.textContent = `${count} low-intensity shocks detected. Within baseline stability margins.`;
+  }
+}
+
+// Controls
+document.getElementById("sl-mag").addEventListener("input", function() {
+  document.getElementById("v-mag").textContent = `M ${parseFloat(this.value).toFixed(1)}+`;
+  applyFilters();
+});
+
+document.querySelectorAll("[data-viz]").forEach(btn => {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll("[data-viz]").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+    currentViz = this.dataset.viz;
+    renderVisualLayers(filteredGeoData);
+  });
+});
+
+document.querySelectorAll("[data-style]").forEach(btn => {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll("[data-style]").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+    currentStyle = this.dataset.style;
+    map.setStyle(MAP_STYLES[currentStyle]);
+    map.once("styledata", () => renderVisualLayers(filteredGeoData));
+  });
+});
+
+// Search Autocomplete using Nominatim
+let searchDebounce;
+const searchInput = document.getElementById("search-input");
+const suggBox = document.getElementById("suggestions");
+
+searchInput.addEventListener("input", function() {
+  clearTimeout(searchDebounce);
+  const q = this.value.trim();
+  if (q.length < 3) { suggBox.style.display = "none"; return; }
+  searchDebounce = setTimeout(() => runSearch(q), 350);
+});
+
+document.getElementById("search-btn").addEventListener("click", () => {
+  const q = searchInput.value.trim();
+  if (q) runSearch(q, true);
+});
+
+async function runSearch(query, autoFly = false) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`, {
+      headers: { "User-Agent": "SeismoScope-App/1.0" }
+    });
+    const items = await res.json();
+    if (autoFly && items.length) {
+      map.flyTo({ center: [parseFloat(items[0].lon), parseFloat(items[0].lat)], zoom: 6, speed: 1.4 });
+      suggBox.style.display = "none";
+      return;
+    }
+    suggBox.innerHTML = "";
+    items.forEach(it => {
+      const d = document.createElement("div");
+      d.className = "suggestion-item";
+      d.textContent = it.display_name.substring(0, 55);
+      d.addEventListener("click", () => {
+        searchInput.value = it.display_name.split(",")[0];
+        map.flyTo({ center: [parseFloat(it.lon), parseFloat(it.lat)], zoom: 6, speed: 1.4 });
+        suggBox.style.display = "none";
+      });
+      suggBox.appendChild(d);
+    });
+    suggBox.style.display = items.length ? "block" : "none";
+  } catch (e) {
+    console.error("Geocoding failed:", e);
+  }
+}
+
+document.addEventListener("click", e => {
+  if (!document.getElementById("search-wrap").contains(e.target)) suggBox.style.display = "none";
+});
+
+init();
+</script>
+</body>
+</html>
