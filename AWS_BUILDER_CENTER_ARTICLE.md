@@ -2,10 +2,22 @@
 ### *Live Geospatial Earthquake Explorer Built on AWS Serverless & Open Data*
 
 > **Challenge Entry**: AWS Builder Center — Weekend Challenge: Map It  
-> **Tag**: `#maps` `#opendata` `#serverless` `#aws`  
-> **Live Web Application**: [http://seismoscope-app-528582359305.s3-website-us-east-1.amazonaws.com](http://seismoscope-app-528582359305.s3-website-us-east-1.amazonaws.com)  
-> **Live API Gateway Endpoint**: `https://ffz5g978r3.execute-api.us-east-1.amazonaws.com/prod/earthquakes`  
+> **Tags**: #maps #opendata #serverless #aws  
+> **Live Web Application**: http://seismoscope-app-528582359305.s3-website-us-east-1.amazonaws.com  
+> **Live API Gateway Endpoint**: https://ffz5g978r3.execute-api.us-east-1.amazonaws.com/prod/earthquakes  
+> **Open Source Code**: https://github.com/omayrq/SeismoScope  
+> **Demo Video Walkthrough**: https://youtu.be/QxRpDomGT08  
 > **Dataset**: USGS Earthquake Hazards Program (Public Open Data)
+
+---
+
+## 📺 Project Demo Video Walkthrough
+
+Watch the complete 2-minute live walkthrough of SeismoScope showing the interactive spatial features, dynamic filtering, and AWS serverless data pipeline:
+
+[![SeismoScope Demo Video](https://img.youtube.com/vi/QxRpDomGT08/maxresdefault.jpg)](https://youtu.be/QxRpDomGT08)
+
+▶️ **Watch on YouTube**: [https://youtu.be/QxRpDomGT08](https://youtu.be/QxRpDomGT08)
 
 ---
 
@@ -27,7 +39,7 @@ We utilized the **United States Geological Survey (USGS) Earthquake Hazards Prog
 
 - **Data Format**: GeoJSON FeatureCollection with 3D spatial geometry `[longitude, latitude, depth_km]`.
 - **Attributes Captured**:
-  - `mag`: Moment magnitude scale ($M_w$)
+  - `mag`: Moment magnitude scale (Mw)
   - `place`: Descriptive distance from regional geographic reference
   - `time`: Epoch millisecond timestamp of primary seismic shock
   - `depth`: Hypocentral depth below Earth's surface (0 to 700+ km)
@@ -77,7 +89,7 @@ SeismoScope is built on a 100% serverless, cloud-native architecture designed fo
 3. **Amazon API Gateway (`ffz5g978r3`)**:
    - Provides a managed REST API frontend with proxy integrations, CORS handling, and automatic DDoS shielding.
 4. **Amazon Location Service & Geocoding**:
-   - Provisioned map configuration (`seismoscope-map`) and place index (`seismoscope-places`) combined with high-precision OpenStreetMap / Carto basemap styles.
+   - Provisioned map configuration (`seismoscope-map`) and place index (`seismoscope-places`) combined with high-precision vector basemaps.
 
 ---
 
@@ -89,8 +101,8 @@ As you pan and zoom anywhere on Earth:
 - The app computes the spatial bounding box of your current viewport in real time.
 - It parses all visible seismic events within that frame, calculates focal depth dispersion, and extracts peak magnitude.
 - It dynamically updates a live **Regional Risk Card**:
-  - 🔴 **CRITICAL SEISMIC RISK**: High-density epicenters with $M \ge 6.8$ or multiple major shocks.
-  - 🟠 **ELEVATED RISK**: Active tectonic subduction or transform faults with $M \ge 5.5$.
+  - 🔴 **CRITICAL SEISMIC RISK**: High-density epicenters with M ≥ 6.8 or multiple major shocks.
+  - 🟠 **ELEVATED RISK**: Active tectonic subduction or transform faults with M ≥ 5.5.
   - 🟡 **MODERATE ACTIVITY**: Normal interplate background stress.
   - 🟢 **LOW SEISMIC ACTIVITY**: Stable continental shields within baseline margins.
 
@@ -103,6 +115,7 @@ We tested this by comparing the seismic silence of Central Europe with the volat
 - **Live Application URL**: [http://seismoscope-app-528582359305.s3-website-us-east-1.amazonaws.com](http://seismoscope-app-528582359305.s3-website-us-east-1.amazonaws.com)
 - **Live Health & API Gateway**: `https://ffz5g978r3.execute-api.us-east-1.amazonaws.com/prod/earthquakes?minmagnitude=4.5&limit=3` (HTTP 200 OK)
 - **Open Source Repository**: [https://github.com/omayrq/SeismoScope](https://github.com/omayrq/SeismoScope)
+- **Public Video Demo**: [https://youtu.be/QxRpDomGT08](https://youtu.be/QxRpDomGT08)
 
 ---
 
